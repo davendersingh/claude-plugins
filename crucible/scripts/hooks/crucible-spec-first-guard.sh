@@ -86,10 +86,17 @@ fi
 # glob, or a docs path that merely contains the segment, does NOT misfire. Everything else is allowed.
 ABS_PATH="$FILE_PATH"
 case "$ABS_PATH" in /*) ;; *) ABS_PATH="$(pwd)/$ABS_PATH" ;; esac
-FILE_DIR=$(dirname "$ABS_PATH")
-TOPLEVEL=$(git -C "$FILE_DIR" rev-parse --show-toplevel 2>/dev/null \
-          || git rev-parse --show-toplevel 2>/dev/null) || exit 0
-REL=${ABS_PATH#"$TOPLEVEL"/}
+# Resolve the file's path RELATIVE TO ITS REPO TOPLEVEL via git (symlink-safe). String-stripping the
+# toplevel from a pwd-derived absolute path breaks when the two disagree on symlinks (e.g. /tmp vs
+# /private/tmp on macOS, firmlinks, symlinked checkouts). Walk up to the nearest existing ancestor
+# (the file — or even its subdir — may be brand new) and ask git for that dir's repo-relative prefix.
+ANCESTOR=$(dirname "$ABS_PATH")
+while [ ! -d "$ANCESTOR" ] && [ "$ANCESTOR" != "/" ] && [ "$ANCESTOR" != "." ]; do
+  ANCESTOR=$(dirname "$ANCESTOR")
+done
+[ -d "$ANCESTOR" ] || exit 0
+PREFIX=$(git -C "$ANCESTOR" rev-parse --show-prefix 2>/dev/null) || exit 0   # "" at root, else "sub/dir/"
+REL="${PREFIX}${ABS_PATH#"$ANCESTOR"/}"
 
 BLOCK=0
 while IFS= read -r g; do
