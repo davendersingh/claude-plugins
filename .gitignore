@@ -1,0 +1,10 @@
+# OS / editor
+.DS_Store
+*.swp
+
+# crucible runtime state (if crucible is ever run inside this repo)
+.crucible/
+.worktrees/
+
+# deps (none today, but future plugins may add)
+node_modules/

@@ -1,0 +1,14 @@
+{
+  "name": "davendersingh-claude-plugins",
+  "owner": {
+    "name": "Davender Singh",
+    "url": "https://github.com/davendersingh"
+  },
+  "plugins": [
+    {
+      "name": "crucible",
+      "source": "./crucible",
+      "description": "Design-for-failure feature pipeline: spec-first RED→GREEN with an unbiased, isolated-context subagent team (manager/senior/reviewer/tester), gated or leader autonomy, single feature or sprint batch. Repo-agnostic."
+    }
+  ]
+}

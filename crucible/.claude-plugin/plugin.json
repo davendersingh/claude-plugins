@@ -1,0 +1,17 @@
+{
+  "name": "crucible",
+  "version": "0.1.0",
+  "description": "Design-for-failure feature pipeline. One session orchestrates an isolated-context subagent team (manager = the session, plus senior / reviewer / tester subagents) through a spec-first RED→GREEN→review→QA→validate→PR sequence. Reviewer and tester see only the diff + spec/acceptance criteria — never the implementer's reasoning — so review is unbiased. Gated mode (pauses at the spec gate, human merges) or leader mode (bounded autonomy to PR). Single feature or sprint batch. Repo-agnostic: discovers test/lint/typecheck/build commands from the repo (or crucible.config.json) and follows the repo's own conventions.",
+  "author": {
+    "name": "Davender Singh"
+  },
+  "homepage": "https://github.com/davendersingh/claude-plugins/tree/main/crucible",
+  "keywords": [
+    "tdd",
+    "spec-first",
+    "multi-agent",
+    "code-review",
+    "feature-development",
+    "design-for-failure"
+  ]
+}

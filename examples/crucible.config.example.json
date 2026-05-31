@@ -1,0 +1,24 @@
+{
+  "//": "Example crucible.config.json for a JS + Ruby monorepo. Drop a copy named 'crucible.config.json' at your repo root and edit. Every field is optional; omit a command to skip that check. Remember to git-ignore your stateDir.",
+  "branchPrefix": "feat",
+  "prTarget": "main",
+  "stateDir": ".crucible",
+  "artifactsDir": "docs/crucible",
+  "implGlobs": ["apps/", "packages/", "src/", "lib/"],
+  "validation": {
+    "web": {
+      "dir": "apps/web",
+      "testOne": "npm test -w apps/web -- {file}",
+      "testAll": "npm test -w apps/web",
+      "lint": "npm run lint -w apps/web",
+      "typecheck": "cd apps/web && npx tsc --noEmit",
+      "build": "npm run build -w apps/web"
+    },
+    "api": {
+      "dir": "apps/api",
+      "testOne": "cd apps/api && bundle exec rspec {file}",
+      "testAll": "cd apps/api && bundle exec rspec",
+      "lint": "cd apps/api && bundle exec rubocop"
+    }
+  }
+}
