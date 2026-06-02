@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "crucible-review-findings",
+  "description": "Structured output an external reviewer (e.g. Codex) returns. Normalized into crucible's finding shape by scripts/codex-review.sh.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "findings"],
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["APPROVED", "CHANGES_REQUESTED"],
+      "description": "APPROVED only if there are no Critical/Important findings."
+    },
+    "findings": {
+      "type": "array",
+      "description": "Confidence-scored findings. Report only confidence >= 50.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severity", "confidence", "location", "what", "why", "fix"],
+        "properties": {
+          "severity": { "type": "string", "enum": ["Critical", "Important", "Minor"] },
+          "confidence": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "location": { "type": "string", "description": "file:line, or file" },
+          "what": { "type": "string", "description": "the issue, concretely" },
+          "why": { "type": "string", "description": "impact / which acceptance criterion or convention it violates" },
+          "fix": { "type": "string", "description": "smallest correct fix direction" }
+        }
+      }
+    }
+  }
+}

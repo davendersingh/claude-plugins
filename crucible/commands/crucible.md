@@ -30,6 +30,7 @@ Announce: `Using Crucible (design-for-failure) to ship: <feature>`.
 | `--linear <ID>` | link the story + PR to an existing Linear issue, sync status (needs Linear MCP) |
 | `--linear-create` | create a Linear issue from the feature first, then link |
 | `--deep-review` | run an adversarial review **panel** (≥3 independent skeptics per finding) via the engine |
+| `--reviewer <who>` | who reviews: `claude` (default) · `codex` (cross-model) · `both` (overrides config) |
 | `--no-worktree` | work on the feature branch in the main tree instead of a dedicated worktree |
 | `--no-enforce` | set `enforce:false` in the state file (disables the spec-first guard hook for this run) |
 | `--auto-merge` | merge when CI is green (⚠ use only if CI fully covers the change) |
@@ -43,8 +44,9 @@ Read `crucible.config.json` at the repo root if present; otherwise use defaults 
 validation commands (see `lib/validation-matrix.md`). Resolve: `branchPrefix` (def `feat`), `prTarget`
 (def `main`), `stateDir` (def `.crucible`), `artifactsDir` (def `docs/crucible`), `implGlobs`
 (def `["src/","lib/","app/","apps/","internal/","pkg/","cmd/"]`), and the per-target `validation`
-commands. **Print the resolved validation commands**; in gated mode, confirm them with the human
-before the first gate.
+commands. Also resolve `reviewer` (`--reviewer` flag > config `reviewer` > default `claude`; one of
+`claude|codex|both`) and optional `codexModel`. **Print the resolved validation commands + reviewer**;
+in gated mode, confirm them with the human before the first gate.
 
 ---
 
@@ -127,19 +129,29 @@ if still stuck, **escalate to the human** even in leader mode.
 
 Set `phase:"review"`. Capture `BASE_SHA` (merge-base with `<prTarget>`) and `HEAD_SHA` (branch tip).
 
-Dispatch **Reviewer and Tester as two `Agent` calls in a single message** (parallel, independent):
+Dispatch the **reviewer(s)** and the **Tester** as parallel, independent calls in a single message.
+The reviewer(s) depend on the resolved `reviewer` setting:
 
-- **Reviewer** (`crucible:reviewer`): prompt built from `git diff BASE..HEAD` + design spec + story AC
-  + plan **only**. Returns confidence-scored findings or `APPROVED`.
-- **Tester** (`crucible:tester`): prompt built from story AC + `git diff BASE..HEAD` + the resolved run
-  commands **only**. Writes the test-story, runs the full per-target suite, probes edges, returns bugs
-  or `QA-PASS`.
+- **`claude`** (default) → the **`crucible:reviewer`** subagent: prompt built from `git diff BASE..HEAD`
+  + design spec + story AC + plan **only**. Returns confidence-scored findings or `APPROVED`.
+- **`codex`** → the **Codex** cross-model reviewer instead of Claude. Run the wrapper:
+  `bash ${CLAUDE_PLUGIN_ROOT}/scripts/codex-review.sh --base <BASE_SHA> --worktree <worktree> --spec <spec path> --ac <story path> --out <tmp.json>` (add `--model <codexModel>` if set).
+  Read `<tmp.json>`: if `available:false`, **fall back to `crucible:reviewer`** and note the fallback;
+  else use its `findings`.
+- **`both`** → run **both** the `crucible:reviewer` subagent **and** the Codex wrapper (above), in
+  parallel. **Merge** their findings and **dedup** by `(file, line, gist)`; keep the union. (If Codex
+  is `available:false`, proceed with Claude-only + a note.)
+- **Tester** (`crucible:tester`, always): prompt built from story AC + `git diff BASE..HEAD` + the
+  resolved run commands **only**. Writes the test-story, runs the full per-target suite, probes edges,
+  returns bugs or `QA-PASS`.
 
-> **Anti-bias rule (do not violate):** build both prompts from files and `git diff` ONLY. Never paste
-> the Senior's narrative/report into them, and never give the Reviewer's findings to the Tester or
-> vice-versa. They must reach you as two independent signals.
+> **Anti-bias rule (do not violate):** build every reviewer/tester input from files + `git diff` ONLY.
+> Never paste the Senior's narrative/report into them; in `both` mode never give one reviewer the
+> other's verdict; never give the Reviewer's findings to the Tester. Each must reach you as an
+> independent signal. (The Codex wrapper already enforces this — it passes only the diff + spec/AC.)
 
-Loop: route **Critical/Important** findings and bugs back to the Senior (one at a time), then
+Loop: route **Critical/Important** findings (from **any** active reviewer) and bugs back to the Senior
+(one at a time), then
 **re-dispatch the relevant** independent role to re-verify on fresh evidence. Record findings in
 `<artifactsDir>/<NNN>-<slug>/review.md`. Set `phase:"qa"` during the QA loop. Advance only when:
 Reviewer = no Critical/Important open, Tester = `QA-PASS` (all AC ✅, all bugs closed/wont-fixed and

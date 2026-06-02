@@ -64,6 +64,16 @@ context, no inheritance of the implementer's rationalizations.
   batch once with you, then runs items autonomously across the dependency DAG with stacked PRs.
 - **Linear** — off by default; `--linear <ID>` links an existing issue, `--linear-create` creates one
   (requires the Linear MCP).
+- **Reviewer (cross-model)** — `reviewer: claude | codex | both` (config or `--reviewer`). `claude` is
+  the default; `codex` swaps in a cross-model review via the [Codex CLI](https://github.com/openai/codex);
+  `both` runs Claude **and** Codex independently and merges findings — a second model's eyes, the
+  strongest anti-bias signal. Codex sees only the diff + spec/AC (same isolation). If the Codex CLI is
+  missing/unauthenticated it falls back to Claude automatically.
+
+```bash
+/crucible --reviewer codex "Add password-reset rate limiting"   # Codex reviews instead of Claude
+/crucible --reviewer both  "Add password-reset rate limiting"   # Claude + Codex, merged
+```
 
 ## Configuration (optional)
 
@@ -76,6 +86,8 @@ your repo root:
 {
   "branchPrefix": "feat",
   "prTarget": "main",
+  "reviewer": "claude",                     // "claude" | "codex" | "both"  (--reviewer overrides)
+  "codexModel": "",                          // optional model for the Codex reviewer (blank = default)
   "stateDir": ".crucible",                 // git-ignore this
   "artifactsDir": "docs/crucible",
   "implGlobs": ["src/", "lib/", "app/"],    // what the spec-first hook treats as "implementation"
