@@ -31,6 +31,7 @@ Announce: `Using Crucible (design-for-failure) to ship: <feature>`.
 | `--linear-create` | create a Linear issue from the feature first, then link |
 | `--deep-review` | run an adversarial review **panel** (≥3 independent skeptics per finding) via the engine |
 | `--reviewer <who>` | who reviews: `claude` (default) · `codex` (cross-model) · `both` (overrides config) |
+| `--browser` / `--no-browser` | force-enable / force-disable the QA browser pass (overrides config) |
 | `--no-worktree` | work on the feature branch in the main tree instead of a dedicated worktree |
 | `--no-enforce` | set `enforce:false` in the state file (disables the spec-first guard hook for this run) |
 | `--auto-merge` | merge when CI is green (⚠ use only if CI fully covers the change) |
@@ -45,8 +46,11 @@ validation commands (see `lib/validation-matrix.md`). Resolve: `branchPrefix` (d
 (def `main`), `stateDir` (def `.crucible`), `artifactsDir` (def `docs/crucible`), `implGlobs`
 (def `["src/","lib/","app/","apps/","internal/","pkg/","cmd/"]`), and the per-target `validation`
 commands. Also resolve `reviewer` (`--reviewer` flag > config `reviewer` > default `claude`; one of
-`claude|codex|both`) and optional `codexModel`. **Print the resolved validation commands + reviewer**;
-in gated mode, confirm them with the human before the first gate.
+`claude|codex|both`) and optional `codexModel`. Also resolve the optional **`browser`** block (default
+disabled): `enabled`, `runner` (`playwright|cypress|custom|mcp`), `command`, `specDir`, `startCommand`,
+`url`, `appliesWhen` (`ui` default | `always`), `uiGlobs` (def `["apps/*/app/","app/","src/","components/"]`).
+**Print the resolved validation commands + reviewer + browser setting**; in gated mode, confirm them
+with the human before the first gate.
 
 ---
 
@@ -144,6 +148,12 @@ The reviewer(s) depend on the resolved `reviewer` setting:
 - **Tester** (`crucible:tester`, always): prompt built from story AC + `git diff BASE..HEAD` + the
   resolved run commands **only**. Writes the test-story, runs the full per-target suite, probes edges,
   returns bugs or `QA-PASS`.
+  - **Browser pass (additive, opt-in):** decide if it applies — `browser.enabled` (or `--browser`) AND
+    not `--no-browser` AND (`appliesWhen=="always"` OR the diff touches a `uiGlobs` path). If so, pass
+    the resolved `browser` config to the Tester and tell it to run the **browser pass** (it E2E-runs or
+    drives a live browser via the Playwright MCP per `runner` — see its agent prompt). Browser failures
+    are **blocking** bugs. If the Tester reports `browser: skipped (<reason>)` (no MCP / url
+    unreachable), surface the reason; don't block QA on missing browser tooling.
 
 > **Anti-bias rule (do not violate):** build every reviewer/tester input from files + `git diff` ONLY.
 > Never paste the Senior's narrative/report into them; in `both` mode never give one reviewer the

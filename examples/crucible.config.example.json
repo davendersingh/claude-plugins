@@ -7,6 +7,16 @@
   "stateDir": ".crucible",
   "artifactsDir": "docs/crucible",
   "implGlobs": ["apps/", "packages/", "src/", "lib/"],
+  "browser": {
+    "enabled": true,
+    "runner": "mcp",
+    "command": "npx playwright test {file}",
+    "specDir": "e2e",
+    "startCommand": "npm run dev -w apps/web",
+    "url": "http://localhost:3000",
+    "appliesWhen": "ui",
+    "uiGlobs": ["apps/web/", "app/", "components/"]
+  },
   "validation": {
     "web": {
       "dir": "apps/web",
