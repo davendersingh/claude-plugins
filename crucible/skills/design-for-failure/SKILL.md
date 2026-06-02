@@ -57,6 +57,20 @@ Evidence for every gate is recorded in the story / plan / test-story file as
 Construct reviewer/tester prompts from files and `git diff` only. Reviewer and Tester run
 independently of each other so two genuinely independent signals reach the Manager.
 
+## Reviewer selection (`claude` | `codex` | `both`)
+
+The REVIEW phase reviewer is configurable (`--reviewer` flag > config `reviewer` > default `claude`):
+- **`claude`** — the `crucible:reviewer` subagent (default).
+- **`codex`** — a cross-model review via `scripts/codex-review.sh` (the Codex CLI) instead of Claude.
+- **`both`** — Claude **and** Codex in parallel; the Manager merges + dedups findings (union).
+
+`both` adds a genuinely independent **second model** — the strongest anti-bias signal. The same
+isolation contract holds for every reviewer: Codex receives only the diff + spec/AC, never the
+implementer's reasoning, and in `both` mode neither reviewer sees the other's verdict. Blocking is on
+the **union** (Critical/Important from any reviewer blocks). If Codex is missing/unauthenticated the
+wrapper returns `available:false` and the pipeline **falls back** (codex→claude, both→claude-only) —
+it never leaves the review with zero reviewers.
+
 ## Retry / escalation
 
 - Review **Critical/Important** and QA **Critical/Important bugs** loop back to the Senior; re-run

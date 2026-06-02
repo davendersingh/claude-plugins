@@ -2,6 +2,8 @@
   "//": "Example crucible.config.json for a JS + Ruby monorepo. Drop a copy named 'crucible.config.json' at your repo root and edit. Every field is optional; omit a command to skip that check. Remember to git-ignore your stateDir.",
   "branchPrefix": "feat",
   "prTarget": "main",
+  "reviewer": "both",
+  "codexModel": "",
   "stateDir": ".crucible",
   "artifactsDir": "docs/crucible",
   "implGlobs": ["apps/", "packages/", "src/", "lib/"],
