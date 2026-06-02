@@ -75,6 +75,14 @@ context, no inheritance of the implementer's rationalizations.
 /crucible --reviewer both  "Add password-reset rate limiting"   # Claude + Codex, merged
 ```
 
+- **Browser QA (opt-in)** — a `browser` config block adds an **additional** browser pass to QA for UI
+  features (on top of the normal suite). `runner: playwright|cypress|custom` runs your E2E suite;
+  `runner: mcp` drives a **live browser via the Playwright MCP** for repos with no E2E runner. Each UI
+  acceptance criterion is checked against the rendered page (screenshots into the test-story); failures
+  block. Auto-applies when the story touches `uiGlobs`; `--browser`/`--no-browser` override. Skips
+  gracefully (with a reason) if the browser tooling/app is unavailable. See
+  [`lib/browser-testing.md`](./lib/browser-testing.md).
+
 ## Configuration (optional)
 
 Crucible works with **zero config** — it auto-detects validation commands from your manifests
@@ -91,6 +99,11 @@ your repo root:
   "stateDir": ".crucible",                 // git-ignore this
   "artifactsDir": "docs/crucible",
   "implGlobs": ["src/", "lib/", "app/"],    // what the spec-first hook treats as "implementation"
+  "browser": {                              // optional: opt-in browser pass in QA (see lib/browser-testing.md)
+    "enabled": true, "runner": "mcp",       // "playwright" | "cypress" | "custom" | "mcp"
+    "startCommand": "npm run dev", "url": "http://localhost:3000",
+    "appliesWhen": "ui", "uiGlobs": ["app/", "components/"]
+  },
   "validation": {
     "web": { "dir": "apps/web", "testAll": "npm test", "lint": "npm run lint",
              "typecheck": "tsc --noEmit", "build": "npm run build",
