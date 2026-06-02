@@ -27,8 +27,9 @@ own conventions.
 /crucible --sprint path/to/manifest.json                # batch over a dependency DAG
 ```
 
-Flags: `--leader` · `--sprint <manifest>` · `--linear <ID>` · `--linear-create` · `--deep-review` ·
-`--no-worktree` · `--no-enforce` · `--auto-merge` · `--branch-prefix <p>`.
+Flags: `--leader` · `--sprint <manifest>` · `--reviewer claude|codex|both` · `--browser` / `--no-browser` ·
+`--deep-review` · `--linear <ID>` · `--linear-create` · `--no-worktree` · `--no-enforce` ·
+`--auto-merge` · `--branch-prefix <p>`. (Full reference under **Configuration** below.)
 
 ## The team & the anti-bias mechanic
 
@@ -83,37 +84,107 @@ context, no inheritance of the implementer's rationalizations.
   gracefully (with a reason) if the browser tooling/app is unavailable. See
   [`lib/browser-testing.md`](./lib/browser-testing.md).
 
-## Configuration (optional)
+## Configuration
 
-Crucible works with **zero config** — it auto-detects validation commands from your manifests
-(`package.json`, `Gemfile`/`.rspec`, `pyproject.toml`, `go.mod`, `Cargo.toml`, …) and writes artifacts
-under `docs/crucible/`. To pin exact commands, paths, or source globs, add a `crucible.config.json` at
-your repo root:
+Crucible runs with **zero config** — it auto-detects validation commands and writes artifacts under
+`docs/crucible/`. Add a `crucible.config.json` at your repo root to pin commands, choose reviewers,
+enable browser QA, or map artifacts onto your own layout. **Every field is optional**; flags override
+config per run.
+
+### Full `crucible.config.json` reference
 
 ```jsonc
 {
-  "branchPrefix": "feat",
-  "prTarget": "main",
-  "reviewer": "claude",                     // "claude" | "codex" | "both"  (--reviewer overrides)
-  "codexModel": "",                          // optional model for the Codex reviewer (blank = default)
-  "stateDir": ".crucible",                 // git-ignore this
-  "artifactsDir": "docs/crucible",
-  "implGlobs": ["src/", "lib/", "app/"],    // what the spec-first hook treats as "implementation"
-  "browser": {                              // optional: opt-in browser pass in QA (see lib/browser-testing.md)
-    "enabled": true, "runner": "mcp",       // "playwright" | "cypress" | "custom" | "mcp"
-    "startCommand": "npm run dev", "url": "http://localhost:3000",
-    "appliesWhen": "ui", "uiGlobs": ["app/", "components/"]
+  // — workflow —
+  "branchPrefix": "feat",              // feature branch → feat/<NNN>-<slug>
+  "prTarget": "main",                  // base branch for PRs
+
+  // — review —
+  "reviewer": "claude",                // "claude" (default) | "codex" | "both"
+  "codexModel": "",                    // model for the Codex reviewer (blank = Codex default)
+
+  // — artifacts & state —
+  "artifactsDir": "docs/crucible",     // where spec/story/plan/test-story/review land
+  "stateDir": ".crucible",             // runtime state dir — GIT-IGNORE THIS
+  "implGlobs": ["src/", "lib/", "app/"], // paths the spec-first hook treats as "implementation"
+
+  // — browser QA (opt-in) —
+  "browser": {
+    "enabled": true,
+    "runner": "mcp",                   // "playwright" | "cypress" | "custom" | "mcp"
+    "command": "npx playwright test {file}", // command runners; {file} = the spec file
+    "specDir": "e2e",                  // where E2E specs are written/found (command runners)
+    "startCommand": "npm run dev",     // optional: boot the app before the pass
+    "url": "http://localhost:3000",    // base URL under test
+    "appliesWhen": "ui",               // "ui" (auto: diff touches uiGlobs) | "always"
+    "uiGlobs": ["app/", "components/"]
   },
+
+  // — validation commands (else auto-detected) —
   "validation": {
-    "web": { "dir": "apps/web", "testAll": "npm test", "lint": "npm run lint",
-             "typecheck": "tsc --noEmit", "build": "npm run build",
-             "testOne": "npm test -- {file}" }
+    "<target>": {                      // one per app/package ("." for single-package repos)
+      "dir": ".",
+      "testOne":   "npm test -- {file}",
+      "testAll":   "npm test",
+      "lint":      "npm run lint",
+      "typecheck": "tsc --noEmit",
+      "build":     "npm run build"
+    }
   }
 }
 ```
 
-See `lib/validation-matrix.md` for resolution rules and the marketplace `examples/` for a full config.
-**Add `.crucible/` (or your `stateDir`) to `.gitignore`.**
+### Field reference
+
+| Field | Default | Purpose |
+|-------|---------|---------|
+| `branchPrefix` | `feat` | feature branch = `<prefix>/<NNN>-<slug>` |
+| `prTarget` | `main` | PR base branch |
+| `reviewer` | `claude` | who runs REVIEW: `claude` · `codex` · `both` |
+| `codexModel` | *(Codex default)* | model for the Codex reviewer |
+| `artifactsDir` | `docs/crucible` | spec / story / plan / test-story / review location |
+| `stateDir` | `.crucible` | runtime state — **git-ignore it** |
+| `implGlobs` | `src/ lib/ app/ apps/ internal/ pkg/ cmd/` | what the spec-first hook gates during RED |
+| `browser` | *(off)* | opt-in browser pass in QA (see below) |
+| `validation.<target>` | *(auto-detected)* | exact test/lint/typecheck/build per target |
+
+### Usage by area
+
+**Reviewers — cross-model (`reviewer`)**
+```bash
+/crucible --reviewer codex "…"   # Codex reviews instead of Claude
+/crucible --reviewer both  "…"   # Claude + Codex, findings merged (strongest anti-bias signal)
+```
+`codex`/`both` need the [Codex CLI](https://github.com/openai/codex) authenticated; if it's missing the
+run **falls back to Claude**. Codex sees only the diff + spec/AC. Details: `lib/findings.schema.json`.
+
+**Browser QA (`browser`)**
+```bash
+/crucible --browser    "…"   # force the browser pass on for this run
+/crucible --no-browser "…"   # force it off
+```
+- `runner: playwright | cypress | custom` → writes + runs your E2E suite (`command`, `{file}`, `specDir`).
+- `runner: mcp` → drives a **live browser via the Playwright MCP** (`startCommand` + `url`) — for repos
+  with no E2E suite.
+- Auto-runs when the diff touches `uiGlobs`; failures **block**; **skips gracefully** if tooling/app is
+  unavailable. Details: `lib/browser-testing.md`.
+
+**Validation (`validation`)**
+One entry per target; omit a command to skip that check. `{file}` in `testOne` is the spec path. With no
+config, Crucible auto-detects from `package.json` · `Gemfile`+`.rspec` · `pyproject.toml` · `go.mod` ·
+`Cargo.toml`. Details: `lib/validation-matrix.md`.
+
+**Artifacts & state**
+Map `artifactsDir` / `stateDir` onto your repo's layout. **Git-ignore your `stateDir`** (e.g. add
+`.crucible/` to `.gitignore`).
+
+### Flags (override config per run)
+
+`--leader` · `--sprint <manifest>` · `--reviewer claude|codex|both` · `--browser` / `--no-browser` ·
+`--deep-review` · `--linear <ID>` · `--linear-create` · `--no-worktree` · `--no-enforce` ·
+`--auto-merge` · `--branch-prefix <p>`
+
+A full annotated config lives at the marketplace `examples/crucible.config.example.json`.
 
 ## The spec-first guard hook (defense-in-depth)
 
