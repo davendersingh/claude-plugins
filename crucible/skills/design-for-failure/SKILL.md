@@ -71,6 +71,17 @@ the **union** (Critical/Important from any reviewer blocks). If Codex is missing
 wrapper returns `available:false` and the pipeline **falls back** (codex→claude, both→claude-only) —
 it never leaves the review with zero reviewers.
 
+## Browser testing in QA (opt-in, additive)
+
+When a repo sets a `browser` block in `crucible.config.json` (or `--browser`) and the story touches UI,
+the **Tester** does an **additional** browser pass on top of the normal suite run — it does not replace
+it. Two runner modes: a repo's E2E command (`runner: playwright|cypress|custom`) or a live browser via
+the Playwright MCP (`runner: mcp`, for repos without an E2E suite). Each user-visible AC is checked
+against observed browser behavior (screenshots captured into the test-story). Browser failures are
+**blocking** bugs. If the browser tooling is unavailable (no Playwright MCP, or the app `url` is
+unreachable), the pass is **skipped with a reason** — QA is never blocked on missing browser tooling.
+See `lib/browser-testing.md`.
+
 ## Retry / escalation
 
 - Review **Critical/Important** and QA **Critical/Important bugs** loop back to the Senior; re-run
